@@ -6,6 +6,7 @@ volumes:
   pg_data:
 
 services:
+
   db:
     image: postgres:13
     env_file: .env
@@ -14,30 +15,36 @@ services:
 
   backend:
     container_name: foodgram-back
-    build: ../backend
+    image: valuas/foodgram-back
     env_file: .env
-    depends_on:
-      - db
+    command: 
+      - python manage.py migrate
+      - python manage.py collectstatic
+      - cp -r /app/collected_static/. /backend_static/
+      - python import_ingredients_to_db.py
     volumes:
       - media:/app/media
       - static:/backend_static
+    depends_on: 
+      - db
+      
+  frontend:
+    container_name: foodgram-front
+    image: valuas/foodgram-front
+    env_file: .env
+    volumes:
+      - static:/frontend_static
+      - ../frontend/:/app/result_build/
   
   nginx:
     container_name: foodgram-proxy
-    image: nginx:1.25.4-alpine
+    image: valuas/foodgram-proxy 
+    env_file: .env
     ports:
-      - 80:80
+      - "80:80"
     volumes:
       - ../frontend/build:/usr/share/nginx/html/
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - ../docs/:/usr/share/nginx/html/api/docs/
       - static:/static/
       - media:/app/media
-
-  frontend:
-    container_name: foodgram-front
-    build: ../frontend
-    command: cp -r /app/build/. /frontend_static/
-    volumes:
-      - static:/frontend_static
-      - ../frontend/:/app/result_build/
