@@ -88,7 +88,7 @@ class UserAvatarSerializer(UserSerializer):
 
     class Meta:
         model = User
-        fields = ['avatar',]
+        fields = ['avatar', ]
 
 
 class TagSerializer(serializers.ModelSerializer):

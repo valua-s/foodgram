@@ -87,7 +87,7 @@ class Recipe(models.Model):
         'Описание рецепта'
     )
     cooking_time = models.IntegerField(
-        'Время приготовления', validators=[MinValueValidator(1),]
+        'Время приготовления', validators=[MinValueValidator(1), ]
     )
     image = models.ImageField(
         'Изображение рецепта', upload_to='media/recipe'
