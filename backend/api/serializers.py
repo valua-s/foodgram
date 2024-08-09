@@ -1,11 +1,9 @@
-import base64
 import csv
 import random
 import string
 
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
-from django.core.files.base import ContentFile
 from django.db.models import F
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -17,10 +15,12 @@ from rest_framework.validators import UniqueValidator
 from reviews.models import (Cart, Favorite, Ingredient, IngredientsInRecipe,
                             Recipe, ShortLinkRecipe, Subscriber, Tag, User)
 
+from .custom_fields import Base64ImageField
+
 
 class CreateUserSerializer(serializers.ModelSerializer):
     username = serializers.RegexField(
-        required=True, max_length=150, regex=r'^[\w.@+-]+$',
+        required=True, max_length=150,
         validators=[UniqueValidator(queryset=User.objects.all(),
                                     message='this username is already taken')])
     email = serializers.EmailField(
@@ -74,15 +74,6 @@ class UserSerializer(CreateUserSerializer):
             return False
 
 
-class Base64ImageField(serializers.ImageField):
-    def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-            data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
-        return super().to_internal_value(data)
-
-
 class UserAvatarSerializer(UserSerializer):
     avatar = Base64ImageField(allow_null=True)
 
@@ -93,7 +84,7 @@ class UserAvatarSerializer(UserSerializer):
 
 class TagSerializer(serializers.ModelSerializer):
     slug = serializers.RegexField(
-        regex=r'^[-a-zA-Z0-9_]+$', required=True, max_length=32,
+        required=True, max_length=32,
         validators=[UniqueValidator(queryset=Tag.objects.all(),
                     message='Этот тег уже есть в базе')])
 
@@ -181,22 +172,17 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         model = Recipe
         fields = (
             'id', 'tags', 'author',
-            'ingredients', 'is_favorited',
-            'is_in_shopping_cart',
+            'ingredients',
             'name', 'image', 'text',
             'cooking_time',
         )
 
     def validate(self, data):
-        try:
-            data['ingredients']
-        except Exception:
+        if 'ingredients' not in data:
             raise ValidationError({
                 'ingredients': 'У рецепта должен быть хотя бы 1 ингредиент'
             })
-        try:
-            data['tags']
-        except Exception:
+        if 'tags' not in data:
             raise ValidationError({
                 'tags': 'У рецепта должен быть хотя бы 1 тег'
             })

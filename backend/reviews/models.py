@@ -1,8 +1,27 @@
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import MinValueValidator
+from django.core.validators import (MinValueValidator,
+                                    RegexValidator,
+                                    MaxValueValidator)
 from django.db import models
+from django.utils.text import slugify
 
-from backend.settings import REQUIRED_FIELD_MAX_LENGTH
+from .constants import REQUIRED_FIELD_MAX_LENGTH, TAG_MAX_LENGTH
+
+
+class AutoRelatedNameMeta(type):
+    def __new__(cls, name, bases, attrs):
+        new_class = super().__new__(cls, name, bases, attrs)
+        for attr_name, attr_value in attrs.items():
+            if isinstance(attr_value, models.ForeignKey):
+                attr_value.related_name = f"{slugify(name)}s"
+            elif isinstance(attr_value, models.ManyToManyField):
+                attr_value.related_name = f"{slugify(name)}s"
+        return new_class
+
+
+class BaseModel(models.Model, metaclass=AutoRelatedNameMeta):
+    class Meta:
+        abstract = True
 
 
 class User(AbstractUser):
@@ -11,7 +30,14 @@ class User(AbstractUser):
     )
     username = models.CharField(
         'Ник пользователя', max_length=REQUIRED_FIELD_MAX_LENGTH,
-        unique=True)
+        unique=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[\w.@+-]+$',
+                message="Используйте только одно слово",
+                code="invalid_registration",
+            ),
+        ])
     first_name = models.CharField(
         'Имя пользователя', max_length=REQUIRED_FIELD_MAX_LENGTH,
     )
@@ -41,14 +67,20 @@ class User(AbstractUser):
 
 class Tag(models.Model):
     name = models.CharField(
-        'Название тега', max_length=32,
+        'Название тега', max_length=TAG_MAX_LENGTH,
         unique=True
     )
     slug = models.SlugField(
-        'Слаг Тега', max_length=32,
-        unique=True
+        'Слаг Тега', max_length=TAG_MAX_LENGTH,
+        unique=True, validators=[
+            RegexValidator(
+                regex=r'^[-a-zA-Z0-9_]+$',
+                message="Используйте символы английского алфавита и цифры",
+                code="invalid_registration",
+            ),
+        ],
+        db_index=True
     )
-    REQUIRED_FIELDS = ['name', 'slug']
 
     class Meta:
         verbose_name = "тег"
@@ -63,7 +95,8 @@ class Ingredient(models.Model):
     name = models.CharField(
         'Название ингредиента',
         max_length=128,
-        unique=True
+        unique=True,
+        db_index=True
     )
     measurement_unit = models.CharField(
         'Единица измерения',
@@ -74,12 +107,13 @@ class Ingredient(models.Model):
         verbose_name = "ингредиент"
         verbose_name_plural = "ингредиенты"
         ordering = ['name']
+        unique_together = ('name', 'measurement_unit',)
 
     def __str__(self):
         return self.name
 
 
-class Recipe(models.Model):
+class Recipe(BaseModel):
     name = models.CharField(
         'Название рецепта', max_length=REQUIRED_FIELD_MAX_LENGTH
     )
@@ -87,31 +121,23 @@ class Recipe(models.Model):
         'Описание рецепта'
     )
     cooking_time = models.IntegerField(
-        'Время приготовления', validators=[MinValueValidator(1), ]
+        'Время приготовления', validators=[MinValueValidator(1),
+                                           MaxValueValidator(1440)]
     )
     image = models.ImageField(
         'Изображение рецепта', upload_to='media/recipe'
     )
     ingredients = models.ManyToManyField(
         Ingredient, through='IngredientsInRecipe',
-        verbose_name='Ингредиенты рецепта',
-        related_name='recipes'
+        verbose_name='Ингредиенты рецепта'
     )
     tags = models.ManyToManyField(
         Tag, through='RecipeTag',
-        verbose_name='Теги рецепта',
-        related_name='recipes'
+        verbose_name='Теги рецепта'
     )
     author = models.ForeignKey(
         User, verbose_name='Автор рецепта',
-        on_delete=models.CASCADE,
-        related_name='recipes'
-    )
-    is_favorited = models.BooleanField(
-        'В избранном', default=False
-    )
-    is_in_shopping_cart = models.BooleanField(
-        'В списке покупок', default=False
+        on_delete=models.CASCADE
     )
     pub_date = models.DateTimeField(
         'Дата создания', auto_now_add=True
@@ -119,9 +145,6 @@ class Recipe(models.Model):
     short_link = models.URLField(
         'Сокращенная ссылка'
     )
-    REQUIRED_FIELDS = ['name', 'text',
-                       'image', 'cooking_time', 'author', 'pub_date',
-                       'short_link']
 
     class Meta:
         verbose_name = "рецепт"
@@ -150,11 +173,9 @@ class RecipeTag(models.Model):
         return f'{self.recipe} с тегом {self.tag}'
 
 
-class IngredientsInRecipe(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
-                               related_name='ingredientsinrecipes')
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE,
-                                   related_name='ingredientsinrecipes')
+class IngredientsInRecipe(BaseModel):
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
     amount = models.IntegerField('Количество ингрединета в рецепте')
 
     class Meta:
@@ -186,48 +207,47 @@ class ShortLinkRecipe(models.Model):
         return f'Ссылка для рецепта {self.recipe}'
 
 
-class Cart(models.Model):
+class BaseUserRecipeModel(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE,
-                             related_name='carts', null=True)
+                             null=True)
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
-                               related_name='carts', null=True)
+                               null=True)
+
+
+class Cart(BaseModel, BaseUserRecipeModel):
 
     class Meta:
         verbose_name = "корзину"
         verbose_name_plural = "корзины"
+        unique_together = ('user', 'recipe',)
 
     def __str__(self):
         return f'{self.user} добавил в корзину {self.recipe}'
 
 
-class Favorite(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE,
-                             related_name='favorites', null=True)
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
-                               related_name='favorites', null=True)
+class Favorite(BaseModel, BaseUserRecipeModel):
 
     class Meta:
         verbose_name = "избранное"
         verbose_name_plural = "избранное"
+        unique_together = ('user', 'recipe',)
 
     def __str__(self):
         return f'{self.user} добавил в избранное {self.recipe}'
 
 
-class Subscriber(models.Model):
+class Subscription(models.Model):
     subscriber = models.ForeignKey(User, on_delete=models.CASCADE,
-                                   related_name='subscribtions', null=True,
+                                   related_name='subscriptions', null=True,
                                    verbose_name='Подписавшийся')
     subscribed = models.ForeignKey(User, on_delete=models.CASCADE,
                                    related_name='subscribers', null=True,
                                    verbose_name='Подписка')
-    is_subscribe = models.BooleanField(
-        'Подписан', default=False
-    )
 
     class Meta:
         verbose_name = "подписку"
         verbose_name_plural = "подписки"
+        unique_together = ('subscriber', 'subscribed',)
 
     def __str__(self):
         return f'{self.subscriber} подписался на {self.subscribed}'
