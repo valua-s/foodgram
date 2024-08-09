@@ -23,7 +23,7 @@ class BaseModel(models.Model, metaclass=AutoRelatedNameMeta):
         abstract = True
 
 
-class User(AbstractUser):
+class User(AbstractUser, BaseModel):
     email = models.EmailField(
         'Электронная почта', unique=True
     )
@@ -64,7 +64,7 @@ class User(AbstractUser):
         return f'{self.last_name} {self.first_name}'
 
 
-class Tag(models.Model):
+class Tag(BaseModel):
     name = models.CharField(
         'Название тега', max_length=TAG_MAX_LENGTH,
         unique=True
@@ -90,7 +90,7 @@ class Tag(models.Model):
         return self.name
 
 
-class Ingredient(models.Model):
+class Ingredient(BaseModel):
     name = models.CharField(
         'Название ингредиента',
         max_length=128,
@@ -154,7 +154,7 @@ class Recipe(BaseModel):
         return self.name
 
 
-class RecipeTag(models.Model):
+class RecipeTag(BaseModel):
     tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
@@ -191,7 +191,7 @@ class IngredientsInRecipe(BaseModel):
         return f'Ингредиент {self.ingredient} к рецепту {self.recipe}'
 
 
-class ShortLinkRecipe(models.Model):
+class ShortLinkRecipe(BaseModel):
     short_link = models.CharField('Короткая ссылка',
                                   max_length=20, null=True)
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
@@ -235,7 +235,7 @@ class Favorite(BaseModel, BaseUserRecipeModel):
         return f'{self.user} добавил в избранное {self.recipe}'
 
 
-class Subscription(models.Model):
+class Subscription(BaseModel):
     subscriber = models.ForeignKey(User, on_delete=models.CASCADE,
                                    related_name='subscriptions', null=True,
                                    verbose_name='Подписавшийся')
