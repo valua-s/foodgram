@@ -1,29 +1,36 @@
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import (MaxValueValidator, MinValueValidator,
-                                    RegexValidator)
+from django.core.validators import (MaxValueValidator,
+                                    MinValueValidator,
+                                    RegexValidator,
+                                    )
 from django.db import models
-from django.utils.text import slugify
 
 from .constants import REQUIRED_FIELD_MAX_LENGTH, TAG_MAX_LENGTH
 
 
-class AutoRelatedNameMeta(type):
-    def __new__(cls, name, bases, attrs):
-        new_class = super().__new__(cls, name, bases, attrs)
-        for attr_name, attr_value in attrs.items():
-            if isinstance(attr_value, models.ForeignKey):
-                attr_value.related_name = f"{slugify(name)}s"
-            elif isinstance(attr_value, models.ManyToManyField):
-                attr_value.related_name = f"{slugify(name)}s"
-        return new_class
+class Base(models.Model):
+    related = models.ForeignKey(
+        'RelatedModel',
+        on_delete=models.CASCADE,
+        related_name='%(class)ss'
+    )
+    many_to_many_field = models.ManyToManyField(
+        'RelatedModel',
+        related_name='%(class)ss'
+    )
 
-
-class BaseModel(models.Model, metaclass=AutoRelatedNameMeta):
     class Meta:
         abstract = True
 
 
-class User(AbstractUser, BaseModel):
+class RelatedModel(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class User(AbstractUser):
     email = models.EmailField(
         'Электронная почта', unique=True
     )
@@ -64,7 +71,7 @@ class User(AbstractUser, BaseModel):
         return f'{self.last_name} {self.first_name}'
 
 
-class Tag(BaseModel):
+class Tag(models.Model):
     name = models.CharField(
         'Название тега', max_length=TAG_MAX_LENGTH,
         unique=True
@@ -90,7 +97,7 @@ class Tag(BaseModel):
         return self.name
 
 
-class Ingredient(BaseModel):
+class Ingredient(models.Model):
     name = models.CharField(
         'Название ингредиента',
         max_length=128,
@@ -112,7 +119,7 @@ class Ingredient(BaseModel):
         return self.name
 
 
-class Recipe(BaseModel):
+class Recipe(Base):
     name = models.CharField(
         'Название рецепта', max_length=REQUIRED_FIELD_MAX_LENGTH
     )
@@ -154,7 +161,7 @@ class Recipe(BaseModel):
         return self.name
 
 
-class RecipeTag(BaseModel):
+class RecipeTag(models.Model):
     tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
@@ -172,7 +179,7 @@ class RecipeTag(BaseModel):
         return f'{self.recipe} с тегом {self.tag}'
 
 
-class IngredientsInRecipe(BaseModel):
+class IngredientsInRecipe(Base):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
     amount = models.IntegerField('Количество ингрединета в рецепте')
@@ -191,7 +198,7 @@ class IngredientsInRecipe(BaseModel):
         return f'Ингредиент {self.ingredient} к рецепту {self.recipe}'
 
 
-class ShortLinkRecipe(BaseModel):
+class ShortLinkRecipe(models.Model):
     short_link = models.CharField('Короткая ссылка',
                                   max_length=20, null=True)
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
@@ -212,8 +219,11 @@ class BaseUserRecipeModel(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                null=True)
 
+    class Meta:
+        abstract = True
 
-class Cart(BaseModel, BaseUserRecipeModel):
+
+class Cart(Base, BaseUserRecipeModel):
 
     class Meta:
         verbose_name = "корзину"
@@ -224,7 +234,7 @@ class Cart(BaseModel, BaseUserRecipeModel):
         return f'{self.user} добавил в корзину {self.recipe}'
 
 
-class Favorite(BaseModel, BaseUserRecipeModel):
+class Favorite(Base, BaseUserRecipeModel):
 
     class Meta:
         verbose_name = "избранное"
@@ -235,7 +245,7 @@ class Favorite(BaseModel, BaseUserRecipeModel):
         return f'{self.user} добавил в избранное {self.recipe}'
 
 
-class Subscription(BaseModel):
+class Subscription(models.Model):
     subscriber = models.ForeignKey(User, on_delete=models.CASCADE,
                                    related_name='subscriptions', null=True,
                                    verbose_name='Подписавшийся')
