@@ -13,7 +13,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.validators import UniqueValidator
 from reviews.models import (Cart, Favorite, Ingredient, IngredientsInRecipe,
-                            Recipe, ShortLinkRecipe, Subscriber, Tag, User)
+                            Recipe, ShortLinkRecipe, Subscription, Tag, User)
 
 from .custom_fields import Base64ImageField
 
@@ -68,8 +68,8 @@ class UserSerializer(CreateUserSerializer):
         if request.method in SAFE_METHODS and (
             request.user.is_authenticated
         ):
-            return Subscriber.objects.filter(subscriber=request.user,
-                                             subscribed=obj).exists()
+            return Subscription.objects.filter(subscriber=request.user,
+                                               subscribed=obj).exists()
         else:
             return False
 
@@ -429,7 +429,7 @@ class SubscribeToUserSerializer(serializers.ModelSerializer):
 class CreateSubscribeSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = Subscriber
+        model = Subscription
         fields = ('subscriber', 'subscribed')
 
     def validate(self, data):
@@ -437,8 +437,10 @@ class CreateSubscribeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 detail={'errors': "Вы не можете подписаться на себя"}
             )
-        elif Subscriber.objects.filter(subscriber=data['subscriber'],
-                                       subscribed=data['subscribed']).exists():
+        elif Subscription.objects.filter(
+            subscriber=data['subscriber'],
+            subscribed=data['subscribed']
+        ).exists():
             raise serializers.ValidationError(
                 detail={'errors': "Вы уже подписаны на данного пользователя"}
             )
@@ -446,7 +448,7 @@ class CreateSubscribeSerializer(serializers.ModelSerializer):
             return data
 
     def create(self, validated_data):
-        return Subscriber.objects.create(
+        return Subscription.objects.create(
             subscribed=validated_data['subscribed'],
             subscriber=validated_data['subscriber'],
             is_subscribe=True)

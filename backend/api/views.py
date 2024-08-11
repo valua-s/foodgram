@@ -10,7 +10,7 @@ from rest_framework.permissions import (SAFE_METHODS, AllowAny,
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from reviews.models import (Cart, Favorite, Ingredient, Recipe,
-                            ShortLinkRecipe, Subscriber, Tag, User)
+                            ShortLinkRecipe, Subscription, Tag, User)
 
 from .filters import (CustomSearchFilter, RecipeFilter,
                       get_filter_recipe_queryset)
@@ -216,7 +216,7 @@ class APIWriteSubscriber(APIView):
         user = get_object_or_404(User, id=pk)
         try:
             obj = get_object_or_404(
-                Subscriber,
+                Subscription,
                 subscriber=request.user.id,
                 subscribed=user.id)
         except Exception:
@@ -235,7 +235,7 @@ class ListSubscriptions(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        set_of_subscribed = Subscriber.objects.filter(subscriber=user.id)
+        set_of_subscribed = Subscription.objects.filter(subscriber=user.id)
         queryset = []
         for subd in set_of_subscribed:
             queryset.append(subd.subscribed)
