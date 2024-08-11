@@ -9,7 +9,6 @@ from rest_framework.permissions import (SAFE_METHODS, AllowAny,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from reviews.models import (Cart, Favorite, Ingredient, Recipe,
                             ShortLinkRecipe, Subscription, Tag, User)
 
