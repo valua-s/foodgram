@@ -80,6 +80,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 AUTH_USER_MODEL = 'reviews.User'
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',

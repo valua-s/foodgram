@@ -9,6 +9,7 @@ from rest_framework.permissions import (SAFE_METHODS, AllowAny,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
 from reviews.models import (Cart, Favorite, Ingredient, Recipe,
                             ShortLinkRecipe, Subscription, Tag, User)
 
@@ -143,7 +144,7 @@ class APIShortLinkRecipe(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         short_link = serializer.data.get('short_link')
-        return Response({'short-link': f'http://{host}/{short_link}'})
+        return Response({'short-link': f'http://{host}/{short_link}/'})
 
 
 def redirect_link(request, short_link):

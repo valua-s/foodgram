@@ -1,5 +1,6 @@
 import django_filters
 from rest_framework.filters import SearchFilter
+
 from reviews.models import Cart, Favorite, Recipe
 
 
@@ -25,7 +26,7 @@ def get_filter_recipe_queryset(self):
 
 class RecipeFilter(django_filters.FilterSet):
     tags = django_filters.CharFilter(field_name='tags__slug',
-                                     lookup_expr='iexact')
+                                     lookup_expr='icontains')
 
     class Meta:
         model = Recipe
