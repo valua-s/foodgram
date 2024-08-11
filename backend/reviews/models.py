@@ -1,8 +1,6 @@
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import (MaxValueValidator,
-                                    MinValueValidator,
-                                    RegexValidator,
-                                    )
+from django.core.validators import (MaxValueValidator, MinValueValidator,
+                                    RegexValidator)
 from django.db import models
 
 from .constants import REQUIRED_FIELD_MAX_LENGTH, TAG_MAX_LENGTH
