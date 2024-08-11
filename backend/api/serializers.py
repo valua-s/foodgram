@@ -20,6 +20,7 @@ from .custom_fields import Base64ImageField
 
 class CreateUserSerializer(serializers.ModelSerializer):
     username = serializers.RegexField(
+        regex=r'^[\w.@+-]+$',
         required=True, max_length=150,
         validators=[UniqueValidator(queryset=User.objects.all(),
                                     message='this username is already taken')])
@@ -84,6 +85,7 @@ class UserAvatarSerializer(UserSerializer):
 
 class TagSerializer(serializers.ModelSerializer):
     slug = serializers.RegexField(
+        regex=r'^[-a-zA-Z0-9_]+$',
         required=True, max_length=32,
         validators=[UniqueValidator(queryset=Tag.objects.all(),
                     message='Этот тег уже есть в базе')])
