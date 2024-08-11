@@ -8,28 +8,6 @@ from django.db import models
 from .constants import REQUIRED_FIELD_MAX_LENGTH, TAG_MAX_LENGTH
 
 
-class Base(models.Model):
-    related = models.ForeignKey(
-        'RelatedModel',
-        on_delete=models.CASCADE,
-        related_name='%(class)ss'
-    )
-    many_to_many_field = models.ManyToManyField(
-        'RelatedModel',
-        related_name='%(class)ss'
-    )
-
-    class Meta:
-        abstract = True
-
-
-class RelatedModel(models.Model):
-    name = models.CharField(max_length=100)
-
-    def __str__(self):
-        return self.name
-
-
 class User(AbstractUser):
     email = models.EmailField(
         'Электронная почта', unique=True
@@ -119,7 +97,7 @@ class Ingredient(models.Model):
         return self.name
 
 
-class Recipe(Base):
+class Recipe(models.Model):
     name = models.CharField(
         'Название рецепта', max_length=REQUIRED_FIELD_MAX_LENGTH
     )
@@ -156,6 +134,7 @@ class Recipe(Base):
         verbose_name = "рецепт"
         verbose_name_plural = "рецепты"
         ordering = ['-pub_date']
+        default_related_name = '%(class)ss'
 
     def __str__(self):
         return self.name
@@ -179,7 +158,7 @@ class RecipeTag(models.Model):
         return f'{self.recipe} с тегом {self.tag}'
 
 
-class IngredientsInRecipe(Base):
+class IngredientsInRecipe(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
     amount = models.IntegerField('Количество ингрединета в рецепте')
@@ -193,6 +172,7 @@ class IngredientsInRecipe(Base):
         ]
         verbose_name = "ингредиент к рецепту"
         verbose_name_plural = "ингредиенты к рецепту"
+        default_related_name = '%(class)ss'
 
     def __str__(self):
         return f'Ингредиент {self.ingredient} к рецепту {self.recipe}'
@@ -223,23 +203,25 @@ class BaseUserRecipeModel(models.Model):
         abstract = True
 
 
-class Cart(Base, BaseUserRecipeModel):
+class Cart(BaseUserRecipeModel):
 
     class Meta:
         verbose_name = "корзину"
         verbose_name_plural = "корзины"
         unique_together = ('user', 'recipe',)
+        default_related_name = '%(class)ss'
 
     def __str__(self):
         return f'{self.user} добавил в корзину {self.recipe}'
 
 
-class Favorite(Base, BaseUserRecipeModel):
+class Favorite(BaseUserRecipeModel):
 
     class Meta:
         verbose_name = "избранное"
         verbose_name_plural = "избранное"
         unique_together = ('user', 'recipe',)
+        default_related_name = '%(class)ss'
 
     def __str__(self):
         return f'{self.user} добавил в избранное {self.recipe}'
