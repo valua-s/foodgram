@@ -3,7 +3,7 @@ from rest_framework.filters import SearchFilter
 from reviews.models import Cart, Favorite, Recipe
 
 
-class CustomSearchFilter(SearchFilter):
+class SearchFilterNameParam(SearchFilter):
     search_param = "name"
 
 

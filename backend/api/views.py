@@ -3,6 +3,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import (SAFE_METHODS, AllowAny,
                                         IsAuthenticated,
@@ -12,7 +13,7 @@ from rest_framework.views import APIView
 from reviews.models import (Cart, Favorite, Ingredient, Recipe,
                             ShortLinkRecipe, Subscription, Tag, User)
 
-from .filters import (CustomSearchFilter, RecipeFilter,
+from .filters import (SearchFilterNameParam, RecipeFilter,
                       get_filter_recipe_queryset)
 from .serializers import (CreateListCartSerializer, CreateUserSerializer,
                           IngredientsSerializer, PasswordSetSerializer,
@@ -34,59 +35,64 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserSerializer
         return CreateUserSerializer
 
-
-class APISetPassword(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def post(self, request):
-        serializer = PasswordSetSerializer(data=request.data)
-        if serializer.is_valid():
-            user = request.user
-            if user.check_password(serializer.data.get('current_password')):
-                user.set_password(serializer.data.get('new_password'))
-                user.save()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            else:
-                return Response({'errors': 'Указан неверный пароль'},
-                                status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
-
-
-class APIUserMe(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def get(self, request):
+    @action(detail=False, methods=['get'],
+            permission_classes=(IsAuthenticated,))
+    def me(self, request):
         serializer = UserSerializer(request.user,
                                     context={'request': request})
         return Response(serializer.data)
 
+    @action(detail=False, methods=['post'])
+    def set_password(self, request):
+        serializer = PasswordSetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        if user.check_password(serializer.data.get('current_password')):
+            user.set_password(serializer.data.get('new_password'))
+            user.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({'errors': 'Указан неверный пароль'},
+                        status=status.HTTP_400_BAD_REQUEST)
 
-class APIUserAvatar(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def put(self, request):
-        serializer = UserAvatarSerializer(request.user, data=request.data,
-                                          context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request):
-        if request.user.is_authenticated is True:
-            user = get_object_or_404(User, username=request.user.username)
-            serializer = UserAvatarSerializer(user, data={'avatar': None},
-                                              partial=True)
-            if serializer.is_valid():
+    @action(detail=False, methods=['put', 'delete'],
+            permission_classes=(IsAuthenticated,),
+            url_path='me/avatar')
+    def avatar(self, request):
+        if request.method == 'PUT':
+            serializer = UserAvatarSerializer(request.user, data=request.data,
+                                              context={'request': request})
+            if serializer.is_valid(raise_exception=True):
                 serializer.save()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            else:
-                return Response(serializer.errors,
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = UserAvatarSerializer(request.user, data={'avatar': None},
+                                          partial=True)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post', 'delete'],
+            permission_classes=(IsAuthenticated,))
+    def subscribe(self, request, pk=None):
+        user = get_object_or_404(User, id=pk)
+        if request.method == 'POST':
+            serializer = SubscribeToUserSerializer(
+                user, context={'request': request})
+            if not serializer.data.get('errors'):
+                return Response(serializer.data,
+                                status=status.HTTP_201_CREATED)
+            return Response(serializer.data,
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            obj = get_object_or_404(
+                Subscription,
+                subscriber=request.user.id,
+                subscribed=user.id)
+        except Exception:
+            return Response({
+                'user': 'Вы не подписаны на данного пользователя'},
+                status=status.HTTP_400_BAD_REQUEST)
+        obj.delete()
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class TagViewSet(viewsets.ModelViewSet):
@@ -101,7 +107,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
     serializer_class = IngredientsSerializer
     http_method_names = ['get', 'list']
     permission_classes = (AllowAny,)
-    filter_backends = (CustomSearchFilter,)
+    filter_backends = (SearchFilterNameParam,)
     search_fields = ('^name',)
 
 
@@ -133,6 +139,48 @@ class CreateRecipeViewSet(viewsets.ModelViewSet):
             return ReadRecipeSerializer
         return WriteRecipeSerializer
 
+    def write_base_cart_favorite(request, pk=None,
+                                 model_name=None,
+                                 serializer_name=None):
+        recipe = get_object_or_404(Recipe, id=pk)
+        if request.method == 'POST':
+            dct = {'recipe': recipe,
+                   'user': request.user}
+            serializer = serializer_name(
+                data=dct, context={'request': request})
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                return Response(serializer.data.get('recipe'),
+                                status=status.HTTP_201_CREATED)
+        try:
+            obj = get_object_or_404(model_name, recipe=recipe,
+                                    user=request.user)
+            obj.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception:
+            return Response({
+                'obj': 'Вы не добавляли данный рецепт в список'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post', 'delete'],
+            permission_classes=(IsAuthenticated,))
+    def shopping_cart(self, request, pk=None):
+        return self.write_base_cart_favorite(
+            pk=pk, request=request,
+            model_name=Cart,
+            serializer_name=WriteCartRecipeSerializer
+        )
+
+    @action(detail=True, methods=['post', 'delete'],
+            permission_classes=(IsAuthenticated,))
+    def favorite(self, request, pk=None):
+        return self.write_base_cart_favorite(
+            pk=pk, request=request,
+            model_name=Favorite,
+            serializer_name=WriteFavoriteRecipeSerializer
+        )
+
 
 class APIShortLinkRecipe(APIView):
     def get(self, request, pk):
@@ -150,82 +198,6 @@ def redirect_link(request, short_link):
     link = get_object_or_404(ShortLinkRecipe,
                              short_link=short_link)
     return HttpResponseRedirect(link.full_link)
-
-
-class APIBaseRecipe(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def post(self, request, pk):
-        recipe = get_object_or_404(Recipe, id=pk)
-        dct = {'recipe': recipe,
-               'user': request.user}
-        serializer = self.serializer_name(data=dct,
-                                          context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data.get('recipe'),
-                            status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk):
-        recipe = get_object_or_404(Recipe, id=pk)
-        try:
-            obj = get_object_or_404(self.model, recipe=recipe,
-                                    user=request.user)
-            obj.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception:
-            return Response({
-                'obj': 'Вы не добавляли данный рецепт в список'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-
-class APIAddCartRecipe(APIBaseRecipe):
-
-    def __init__(self):
-        self.model = Cart
-        self.serializer_name = WriteCartRecipeSerializer
-
-
-class APIAddFavoriteRecipe(APIBaseRecipe):
-
-    def __init__(self):
-        self.model = Favorite
-        self.serializer_name = WriteFavoriteRecipeSerializer
-
-
-class APIWriteSubscriber(APIView):
-    permission_classes = (IsAuthenticated,)
-    pagination_class = LimitOffsetPagination
-
-    def post(self, request, pk):
-        user = get_object_or_404(User, id=pk)
-        serializer = SubscribeToUserSerializer(user,
-                                               context={'request': request})
-        if not serializer.data.get('errors'):
-            return Response(serializer.data,
-                            status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.data,
-                            status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk):
-        user = get_object_or_404(User, id=pk)
-        try:
-            obj = get_object_or_404(
-                Subscription,
-                subscriber=request.user.id,
-                subscribed=user.id)
-        except Exception:
-            return Response({
-                'user': 'Вы не подписаны на данного пользователя'},
-                status=status.HTTP_400_BAD_REQUEST)
-        obj.delete()
-        return Response(None,
-                        status=status.HTTP_204_NO_CONTENT)
 
 
 class ListSubscriptions(generics.ListCreateAPIView):

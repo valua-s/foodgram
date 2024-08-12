@@ -9,13 +9,13 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.validators import UniqueValidator
 from reviews.models import (Cart, Favorite, Ingredient, IngredientsInRecipe,
                             Recipe, ShortLinkRecipe, Subscription, Tag, User)
 
-from .custom_fields import Base64ImageField
+from .fields import Base64ImageField
+from .pagination import LimitOffsetPaginationRecipesParam
 
 
 class CreateUserSerializer(serializers.ModelSerializer):
@@ -37,14 +37,14 @@ class CreateUserSerializer(serializers.ModelSerializer):
                   'first_name', 'last_name', 'password')
 
     def create(self, validated_data):
-        user = User.objects.create(
+        User.objects.create(
             email=validated_data['email'],
             username=validated_data['username'],
             last_name=validated_data['last_name'],
             first_name=validated_data['first_name'],
             password=make_password(validated_data['password'])
         )
-        return user
+        return validated_data
 
 
 class PasswordSetSerializer(serializers.Serializer):
@@ -143,13 +143,13 @@ class ReadRecipeSerializer(serializers.ModelSerializer):
     def get_is_favorited(self, obj):
         user = self.context.get('request').user
         return (user.is_authenticated) and (
-            Favorite.objects.filter(recipe=obj, user=user).exists()
+            user.favorites.filter(recipe=obj).exists()
         )
 
     def get_is_in_shopping_cart(self, obj):
         user = self.context.get('request').user
         return (user.is_authenticated) and (
-            Cart.objects.filter(recipe=obj, user=user).exists()
+            user.carts.filter(recipe=obj).exists()
         )
 
 
@@ -234,13 +234,14 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         return value
 
     def create_ingredients_amount(self, ingredients, recipe):
+        ingredients_in_recipe = (IngredientsInRecipe(
+            ingredient=Ingredient.objects.get(id=ingredient.get(
+                'ingredient')['id']),
+            recipe=recipe,
+            amount=ingredient['amount']
+        ) for ingredient in ingredients)
         IngredientsInRecipe.objects.bulk_create(
-            [IngredientsInRecipe(
-                ingredient=Ingredient.objects.get(id=ingredient.get(
-                    'ingredient')['id']),
-                recipe=recipe,
-                amount=ingredient['amount']
-            ) for ingredient in ingredients]
+            ingredients_in_recipe
         )
 
     def create(self, validated_data):
@@ -343,13 +344,6 @@ class WriteBaseRecipeSerializer(serializers.ModelSerializer):
                 'errors': 'Данный рецепт уже в списке'
             })
 
-
-class WriteCartRecipeSerializer(WriteBaseRecipeSerializer):
-
-    class Meta:
-        model = Cart
-        fields = ('recipe',)
-
     def create(self, validated_data):
         user = validated_data.get('user')
         recipe = validated_data.get('recipe')
@@ -358,6 +352,13 @@ class WriteCartRecipeSerializer(WriteBaseRecipeSerializer):
             recipe=recipe
         )
         return obj
+
+
+class WriteCartRecipeSerializer(WriteBaseRecipeSerializer):
+
+    class Meta:
+        model = Cart
+        fields = ('recipe',)
 
 
 class WriteFavoriteRecipeSerializer(WriteBaseRecipeSerializer):
@@ -366,25 +367,12 @@ class WriteFavoriteRecipeSerializer(WriteBaseRecipeSerializer):
         model = Favorite
         fields = ('recipe',)
 
-    def create(self, validated_data):
-        user = validated_data.get('user')
-        recipe = validated_data.get('recipe')
-        obj = self.Meta.model.objects.create(
-            user=user,
-            recipe=recipe
-        )
-        return obj
-
 
 class IngredientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ingredient
         fields = ('name',)
-
-
-class CustomLimitOffsetPagination(PageNumberPagination):
-    page_size_query_param = 'recipes_limit'
 
 
 class SubscribeToUserSerializer(serializers.ModelSerializer):
@@ -401,7 +389,7 @@ class SubscribeToUserSerializer(serializers.ModelSerializer):
 
     def get_recipes(self, obj):
         recipes = obj.recipes.all()
-        paginator = CustomLimitOffsetPagination()
+        paginator = LimitOffsetPaginationRecipesParam()
         page = paginator.paginate_queryset(recipes, self.context['request'])
         serializer = ReadCartRecipeSerializer(page, many=True)
         return serializer.data
@@ -446,8 +434,7 @@ class CreateSubscribeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 detail={'errors': "Вы уже подписаны на данного пользователя"}
             )
-        else:
-            return data
+        return data
 
     def create(self, validated_data):
         return Subscription.objects.create(
