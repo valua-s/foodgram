@@ -20,7 +20,7 @@ from .pagination import LimitOffsetPaginationRecipesParam
 
 class CreateUserSerializer(serializers.ModelSerializer):
     username = serializers.RegexField(
-        regex=r'^[\w.@+-]+$',
+        regex=User.USER_REGEX,
         required=True, max_length=150,
         validators=[UniqueValidator(queryset=User.objects.all(),
                                     message='this username is already taken')])
@@ -85,7 +85,7 @@ class UserAvatarSerializer(UserSerializer):
 
 class TagSerializer(serializers.ModelSerializer):
     slug = serializers.RegexField(
-        regex=r'^[-a-zA-Z0-9_]+$',
+        regex=Tag.SLUG_REGEX,
         required=True, max_length=32,
         validators=[UniqueValidator(queryset=Tag.objects.all(),
                     message='Этот тег уже есть в базе')])

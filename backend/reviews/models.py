@@ -7,6 +7,7 @@ from .constants import REQUIRED_FIELD_MAX_LENGTH, TAG_MAX_LENGTH
 
 
 class User(AbstractUser):
+    USER_REGEX = r'^[\w.@+-]+$'
     email = models.EmailField(
         'Электронная почта', unique=True
     )
@@ -15,7 +16,7 @@ class User(AbstractUser):
         unique=True,
         validators=[
             RegexValidator(
-                regex=r'^[\w.@+-]+$',
+                regex=USER_REGEX,
                 message="Используйте только одно слово",
                 code="invalid_registration",
             ),
@@ -48,6 +49,7 @@ class User(AbstractUser):
 
 
 class Tag(models.Model):
+    SLUG_REGEX = r'^[-a-zA-Z0-9_]+$'
     name = models.CharField(
         'Название тега', max_length=TAG_MAX_LENGTH,
         unique=True
@@ -56,7 +58,7 @@ class Tag(models.Model):
         'Слаг Тега', max_length=TAG_MAX_LENGTH,
         unique=True, validators=[
             RegexValidator(
-                regex=r'^[-a-zA-Z0-9_]+$',
+                regex=SLUG_REGEX,
                 message="Используйте символы английского алфавита и цифры",
                 code="invalid_registration",
             ),
