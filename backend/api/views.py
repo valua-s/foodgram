@@ -13,8 +13,8 @@ from rest_framework.views import APIView
 from reviews.models import (Cart, Favorite, Ingredient, Recipe,
                             ShortLinkRecipe, Subscription, Tag, User)
 
-from .filters import (SearchFilterNameParam, RecipeFilter,
-                      get_filter_recipe_queryset)
+from .filters import (get_filter_recipe_queryset,
+                      SearchFilterNameParam, RecipeFilter)
 from .serializers import (CreateListCartSerializer, CreateUserSerializer,
                           IngredientsSerializer, PasswordSetSerializer,
                           ReadRecipeSerializer, ShortLinkRecipeSerializer,
