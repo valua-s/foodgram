@@ -11,7 +11,6 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.validators import UniqueValidator
-
 from reviews.models import (Cart, Favorite, Ingredient, IngredientsInRecipe,
                             Recipe, ShortLinkRecipe, Subscription, Tag, User)
 
