@@ -54,23 +54,25 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'errors': 'Указан неверный пароль'},
                         status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['put', 'delete'],
+    @action(detail=False, methods=['put'],
             permission_classes=(IsAuthenticated,),
             url_path='me/avatar')
     def avatar(self, request):
-        if request.method == 'PUT':
-            serializer = UserAvatarSerializer(request.user, data=request.data,
-                                              context={'request': request})
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = UserAvatarSerializer(request.user, data=request.data,
+                                          context={'request': request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @avatar.mapping.delete
+    def delete_avatar(self, request):
         serializer = UserAvatarSerializer(request.user, data={'avatar': None},
                                           partial=True)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['post', 'delete'],
+    @action(detail=True, methods=['post'],
             permission_classes=(IsAuthenticated,))
     def subscribe(self, request, pk=None):
         user = get_object_or_404(User, id=pk)
@@ -82,15 +84,14 @@ class UserViewSet(viewsets.ModelViewSet):
                                 status=status.HTTP_201_CREATED)
             return Response(serializer.data,
                             status=status.HTTP_400_BAD_REQUEST)
-        try:
-            obj = get_object_or_404(
-                Subscription,
-                subscriber=request.user.id,
-                subscribed=user.id)
-        except Exception:
-            return Response({
-                'user': 'Вы не подписаны на данного пользователя'},
-                status=status.HTTP_400_BAD_REQUEST)
+
+    @subscribe.mapping.delete
+    def delete_subscribe(self, request, pk=None):
+        user = get_object_or_404(User, id=pk)
+        obj = get_object_or_404(
+            Subscription,
+            subscriber=request.user.id,
+            subscribed=user.id)
         obj.delete()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
@@ -140,45 +141,54 @@ class CreateRecipeViewSet(viewsets.ModelViewSet):
         return WriteRecipeSerializer
 
     def write_base_cart_favorite(request, pk=None,
-                                 model_name=None,
-                                 serializer_name=None):
+                                 class_serializer=None):
         recipe = get_object_or_404(Recipe, id=pk)
         if request.method == 'POST':
             dct = {'recipe': recipe,
                    'user': request.user}
-            serializer = serializer_name(
+            serializer = class_serializer(
                 data=dct, context={'request': request})
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                return Response(serializer.data.get('recipe'),
-                                status=status.HTTP_201_CREATED)
-        try:
-            obj = get_object_or_404(model_name, recipe=recipe,
-                                    user=request.user)
-            obj.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception:
-            return Response({
-                'obj': 'Вы не добавляли данный рецепт в список'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data.get('recipe'),
+                            status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['post', 'delete'],
+    def delete_base_cart_favorite(request, pk=None,
+                                  model_name=None):
+        recipe = get_object_or_404(Recipe, id=pk)
+        obj = get_object_or_404(model_name, recipe=recipe,
+                                user=request.user)
+        obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'],
             permission_classes=(IsAuthenticated,))
     def shopping_cart(self, request, pk=None):
         return self.write_base_cart_favorite(
             pk=pk, request=request,
-            model_name=Cart,
-            serializer_name=WriteCartRecipeSerializer
+            class_serializer=WriteCartRecipeSerializer
         )
 
-    @action(detail=True, methods=['post', 'delete'],
+    @shopping_cart.mapping.delete
+    def delete_shopping_cart(self, request, pk=None):
+        return self.delete_base_cart_favorite(
+            pk=pk, request=request,
+            model_name=Cart
+        )
+
+    @action(detail=True, methods=['post'],
             permission_classes=(IsAuthenticated,))
     def favorite(self, request, pk=None):
         return self.write_base_cart_favorite(
             pk=pk, request=request,
-            model_name=Favorite,
-            serializer_name=WriteFavoriteRecipeSerializer
+            class_serializer=WriteFavoriteRecipeSerializer
+        )
+
+    @favorite.mapping.delete
+    def delete_favorite(self, request, pk=None):
+        return self.delete_base_cart_favorite(
+            pk=pk, request=request,
+            model_name=Favorite
         )
 
 
