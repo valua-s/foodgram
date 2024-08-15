@@ -201,7 +201,7 @@ class APIShortLinkRecipe(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         short_link = serializer.data.get('short_link')
-        return Response({'short-link': f'http://{host}/{short_link}/'})
+        return Response({'short-link': f'http://{host}/s/{short_link}/'})
 
 
 def redirect_link(request, short_link):
