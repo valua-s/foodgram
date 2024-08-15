@@ -70,8 +70,7 @@ class UserSerializer(CreateUserSerializer):
         ):
             return Subscription.objects.filter(subscriber=request.user,
                                                subscribed=obj).exists()
-        else:
-            return False
+        return False
 
 
 class UserAvatarSerializer(UserSerializer):
@@ -162,12 +161,10 @@ class WriteIngredientsInRecipeSerializer(serializers.ModelSerializer):
 
 class WriteRecipeSerializer(serializers.ModelSerializer):
     tags = serializers.PrimaryKeyRelatedField(many=True,
-                                              queryset=Tag.objects.all(),
-                                              required=True)
-    ingredients = WriteIngredientsInRecipeSerializer(many=True,
-                                                     required=True)
+                                              queryset=Tag.objects.all())
+    ingredients = WriteIngredientsInRecipeSerializer(many=True)
     author = UserSerializer(read_only=True)
-    image = Base64ImageField(required=True)
+    image = Base64ImageField()
 
     class Meta:
         model = Recipe
