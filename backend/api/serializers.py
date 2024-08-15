@@ -281,19 +281,19 @@ class ShortLinkRecipeSerializer(serializers.ModelSerializer):
 
     def short_link(self):
         characters = string.ascii_letters + string.digits
-        return ''.join(random.choice(characters) for _ in range(6))
+        short_link = ''.join(random.choice(characters) for _ in range(6))
+        return 's/' + short_link
 
     def create(self, validated_data):
         try:
-            link = ShortLinkRecipe.objects.get(
+            return ShortLinkRecipe.objects.get(
                 recipe_id=validated_data['recipe'].id,
                 full_link=validated_data['full_link'])
         except Exception:
-            link = ShortLinkRecipe.objects.create(
+            return ShortLinkRecipe.objects.create(
                 recipe=validated_data['recipe'],
                 full_link=validated_data['full_link'],
                 short_link=self.short_link())
-        return link
 
 
 class ReadCartRecipeSerializer(serializers.ModelSerializer):
