@@ -1,6 +1,5 @@
 from django.contrib.sites.shortcuts import get_current_site
-from django.http import HttpResponseRedirect
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
@@ -201,13 +200,13 @@ class APIShortLinkRecipe(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         short_link = serializer.data.get('short_link')
-        return Response({'short-link': f'http://{host}/{short_link}/'})
+        return Response({'short-link': f'http://{host}/s/{short_link}/'})
 
 
 def redirect_link(request, short_link):
     link = get_object_or_404(ShortLinkRecipe,
                              short_link=short_link)
-    return HttpResponseRedirect(link.full_link)
+    return redirect(link.full_link)
 
 
 class ListSubscriptions(generics.ListCreateAPIView):

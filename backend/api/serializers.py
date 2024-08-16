@@ -281,8 +281,7 @@ class ShortLinkRecipeSerializer(serializers.ModelSerializer):
 
     def short_link(self):
         characters = string.ascii_letters + string.digits
-        short_link = ''.join(random.choice(characters) for _ in range(6))
-        return 's/' + short_link
+        return ''.join(random.choice(characters) for _ in range(6))
 
     def create(self, validated_data):
         try:
