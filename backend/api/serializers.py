@@ -158,6 +158,20 @@ class WriteIngredientsInRecipeSerializer(serializers.ModelSerializer):
         model = IngredientsInRecipe
         fields = ('id', 'amount')
 
+    def validate_amout(self, value):
+        if value <= 0:
+            raise ValidationError({
+                'amount': 'Количество должно быть больше 0'
+            })
+
+    def validate_id(self, value):
+        try:
+            get_object_or_404(Ingredient, id=value)
+        except Exception:
+            raise ValidationError({
+                'ingredients': 'Указан ID несуществующего ингредиента'
+            })
+
 
 class WriteRecipeSerializer(serializers.ModelSerializer):
     tags = serializers.PrimaryKeyRelatedField(many=True,
@@ -195,24 +209,17 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 'У рецепта должен быть хотя бы 1 ингредиент'
             )
-        lst = []
+        set_of_ing = ()
         for item in value:
-            id_item = item.get('ingredient')
-            try:
-                ingredient = get_object_or_404(Ingredient, id=id_item['id'])
-            except Exception:
-                raise ValidationError({
-                    'ingredients': 'Указан ID несуществующего ингредиента'
-                })
-            if int(item['amount']) <= 0:
-                raise ValidationError({
-                    'amount': 'Количество должно быть больше 0'
-                })
-            if ingredient in lst:
-                raise ValidationError({
-                    'ingredients': 'Ингредиенты не должны повторяться'
-                })
-            lst.append(ingredient)
+            data = {'id': item.get('ingredient'),
+                    'amount': item.get('amount')}
+            serializer = WriteIngredientsInRecipeSerializer(data)
+            serializer.is_valid(raise_exception=True)
+            set_of_ing.add(item.get('ingredient'))
+        if len(value) != len(set_of_ing):
+            raise ValidationError({
+                'ingredients': 'Ингредиенты не должны повторяться'
+            })
         return value
 
     def validate_tags(self, value):
@@ -220,13 +227,10 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 'У рецепта должен быть хотя бы 1 тег'
             )
-        lst = []
-        for tag in value:
-            if tag in lst:
-                raise ValidationError(
-                    'Теги не должны повторяться'
-                )
-            lst.append(tag)
+        if len(value) != len(set(value)):
+            raise ValidationError(
+                'Теги не должны повторяться'
+            )
         return value
 
     def create_ingredients_amount(self, ingredients, recipe):
@@ -288,7 +292,7 @@ class ShortLinkRecipeSerializer(serializers.ModelSerializer):
             return ShortLinkRecipe.objects.get(
                 recipe_id=validated_data['recipe'].id,
                 full_link=validated_data['full_link'])
-        except Exception:
+        except ObjectDoesNotExist:
             return ShortLinkRecipe.objects.create(
                 recipe=validated_data['recipe'],
                 full_link=validated_data['full_link'],
@@ -393,22 +397,7 @@ class SubscribeToUserSerializer(serializers.ModelSerializer):
         return obj.recipes.count()
 
     def get_is_subscribed(self, obj):
-        request = self.context.get('request')
-        if request.method == "POST":
-            subscribed = obj
-            subscriber = request.user
-            dct = {'subscribed': subscribed.id,
-                   'subscriber': subscriber.id}
-            serializer = CreateSubscribeSerializer(data=dct)
-            if serializer.is_valid():
-                serializer.save()
-                return True
-            else:
-                raise serializers.ValidationError(
-                    detail={'errors': serializer.errors.get('errors')[0]}
-                )
-        elif request.method == "GET":
-            return True
+        pass
 
 
 class CreateSubscribeSerializer(serializers.ModelSerializer):
@@ -436,6 +425,29 @@ class CreateSubscribeSerializer(serializers.ModelSerializer):
             subscribed=validated_data['subscribed'],
             subscriber=validated_data['subscriber'],
             is_subscribe=True)
+
+
+class WriteSubscribeToUserSerializer(SubscribeToUserSerializer):
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        subscribed = obj
+        subscriber = request.user
+        dct = {'subscribed': subscribed.id,
+               'subscriber': subscriber.id}
+        serializer = CreateSubscribeSerializer(data=dct)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return True
+        raise serializers.ValidationError(
+            detail={'errors': serializer.errors.get('errors')[0]}
+        )
+
+
+class ReadSubscribeToUserSerializer(SubscribeToUserSerializer):
+
+    def get_is_subscribed(self, obj):
+        return True
 
 
 class CreateListCartSerializer(serializers.Serializer):

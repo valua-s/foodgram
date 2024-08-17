@@ -1,14 +1,13 @@
 from django.contrib.sites.shortcuts import get_current_site
 from django.shortcuts import get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import generics, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import (SAFE_METHODS, AllowAny,
                                         IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from reviews.models import (Cart, Favorite, Ingredient, Recipe,
                             ShortLinkRecipe, Subscription, Tag, User)
 
@@ -16,11 +15,12 @@ from .filters import (RecipeFilter, SearchFilterNameParam,
                       get_filter_recipe_queryset)
 from .serializers import (CreateListCartSerializer, CreateUserSerializer,
                           IngredientsSerializer, PasswordSetSerializer,
-                          ReadRecipeSerializer, ShortLinkRecipeSerializer,
-                          SubscribeToUserSerializer, TagSerializer,
+                          ReadRecipeSerializer, ReadSubscribeToUserSerializer,
+                          ShortLinkRecipeSerializer, TagSerializer,
                           UserAvatarSerializer, UserSerializer,
                           WriteCartRecipeSerializer,
-                          WriteFavoriteRecipeSerializer, WriteRecipeSerializer)
+                          WriteFavoriteRecipeSerializer, WriteRecipeSerializer,
+                          WriteSubscribeToUserSerializer)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -59,40 +59,50 @@ class UserViewSet(viewsets.ModelViewSet):
     def avatar(self, request):
         serializer = UserAvatarSerializer(request.user, data=request.data,
                                           context={'request': request})
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @avatar.mapping.delete
     def delete_avatar(self, request):
         serializer = UserAvatarSerializer(request.user, data={'avatar': None},
                                           partial=True)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'],
             permission_classes=(IsAuthenticated,))
     def subscribe(self, request, pk=None):
         user = get_object_or_404(User, id=pk)
-        if request.method == 'POST':
-            serializer = SubscribeToUserSerializer(
-                user, context={'request': request})
-            if not serializer.data.get('errors'):
-                return Response(serializer.data,
-                                status=status.HTTP_201_CREATED)
+        serializer = WriteSubscribeToUserSerializer(
+            user, context={'request': request})
+        if not serializer.data.get('errors'):
             return Response(serializer.data,
-                            status=status.HTTP_400_BAD_REQUEST)
+                            status=status.HTTP_201_CREATED)
+        return Response(serializer.data,
+                        status=status.HTTP_400_BAD_REQUEST)
 
     @subscribe.mapping.delete
     def delete_subscribe(self, request, pk=None):
-        user = get_object_or_404(User, id=pk)
         obj = get_object_or_404(
             Subscription,
             subscriber=request.user.id,
-            subscribed=user.id)
+            subscribed=self.user.id)
         obj.delete()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get'],
+            permission_classes=(IsAuthenticated,))
+    def subscriptions(self, request):
+        user = request.user
+        subscriptions = user.subscriptions.all()
+        page = self.paginate_queryset(subscriptions)
+        if page is not None:
+            serializer = ReadSubscribeToUserSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = ReadSubscribeToUserSerializer(subscriptions, many=True)
+        return Response(serializer.data)
 
 
 class TagViewSet(viewsets.ModelViewSet):
@@ -111,7 +121,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
     search_fields = ('^name',)
 
 
-class CreateRecipeViewSet(viewsets.ModelViewSet):
+class RecipeViewSet(viewsets.ModelViewSet):
     pagination_class = LimitOffsetPagination
     http_method_names = ['get', 'list', 'post', 'patch', 'delete']
     permission_classes = (IsAuthenticatedOrReadOnly,)
@@ -140,17 +150,18 @@ class CreateRecipeViewSet(viewsets.ModelViewSet):
         return WriteRecipeSerializer
 
     def write_base_cart_favorite(request, pk=None,
-                                 class_serializer=None):
+                                 serializer_class=None):
         recipe = get_object_or_404(Recipe, id=pk)
-        if request.method == 'POST':
-            dct = {'recipe': recipe,
-                   'user': request.user}
-            serializer = class_serializer(
-                data=dct, context={'request': request})
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data.get('recipe'),
-                            status=status.HTTP_201_CREATED)
+        if request.method != 'POST':
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        dct = {'recipe': recipe,
+               'user': request.user}
+        serializer = serializer_class(
+            data=dct, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data.get('recipe'),
+                        status=status.HTTP_201_CREATED)
 
     def delete_base_cart_favorite(request, pk=None,
                                   model_name=None):
@@ -165,7 +176,7 @@ class CreateRecipeViewSet(viewsets.ModelViewSet):
     def shopping_cart(self, request, pk=None):
         return self.write_base_cart_favorite(
             pk=pk, request=request,
-            class_serializer=WriteCartRecipeSerializer
+            serializer_class=WriteCartRecipeSerializer
         )
 
     @shopping_cart.mapping.delete
@@ -180,7 +191,7 @@ class CreateRecipeViewSet(viewsets.ModelViewSet):
     def favorite(self, request, pk=None):
         return self.write_base_cart_favorite(
             pk=pk, request=request,
-            class_serializer=WriteFavoriteRecipeSerializer
+            serializer_class=WriteFavoriteRecipeSerializer
         )
 
     @favorite.mapping.delete
@@ -190,9 +201,10 @@ class CreateRecipeViewSet(viewsets.ModelViewSet):
             model_name=Favorite
         )
 
-
-class APIShortLinkRecipe(APIView):
-    def get(self, request, pk):
+    @action(detail=True, methods=['get'],
+            permission_classes=(IsAuthenticated,),
+            url_path='get-link')
+    def short_link(self, request, pk=None):
         host = get_current_site(request)
         data = {'recipe': pk,
                 'full_link': f'http://{host}/recipes/{pk}'}
@@ -202,32 +214,16 @@ class APIShortLinkRecipe(APIView):
         short_link = serializer.data.get('short_link')
         return Response({'short-link': f'http://{host}/s/{short_link}/'})
 
+    @action(detail=False, methods=['get'],
+            permission_classes=(IsAuthenticated,))
+    def download_shopping_cart(self, request):
+        serializer = CreateListCartSerializer(
+            context={'request': request})
+        response = serializer.download_csv()
+        return response
+
 
 def redirect_link(request, short_link):
     link = get_object_or_404(ShortLinkRecipe,
                              short_link=short_link)
     return redirect(link.full_link)
-
-
-class ListSubscriptions(generics.ListCreateAPIView):
-    permission_classes = (IsAuthenticated,)
-    serializer_class = SubscribeToUserSerializer
-    pagination_class = LimitOffsetPagination
-
-    def get_queryset(self):
-        user = self.request.user
-        set_of_subscribed = Subscription.objects.filter(subscriber=user.id)
-        queryset = []
-        for subd in set_of_subscribed:
-            queryset.append(subd.subscribed)
-        return queryset
-
-
-class APICartListCreate(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def get(self, request):
-        serializer = CreateListCartSerializer(
-            context={'request': request})
-        response = serializer.download_csv()
-        return response
