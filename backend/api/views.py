@@ -224,6 +224,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
 
 def redirect_link(request, short_link):
+    """Данный метод используется в backend.url.
+    для переадресации коротких ссылок"""
     link = get_object_or_404(ShortLinkRecipe,
                              short_link=short_link)
     return redirect(link.full_link)

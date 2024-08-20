@@ -200,7 +200,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
             })
         try:
             self.context.get('request').build_absolute_uri()
-        except Exception:
+        except AttributeError:
             raise ValidationError()
         return super().validate(data)
 
@@ -209,7 +209,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 'У рецепта должен быть хотя бы 1 ингредиент'
             )
-        set_of_ing = ()
+        set_of_ing = {}
         for item in value:
             data = {'id': item.get('ingredient'),
                     'amount': item.get('amount')}
@@ -411,7 +411,7 @@ class CreateSubscribeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 detail={'errors': "Вы не можете подписаться на себя"}
             )
-        elif Subscription.objects.filter(
+        if Subscription.objects.filter(
             subscriber=data['subscriber'],
             subscribed=data['subscribed']
         ).exists():
@@ -436,12 +436,9 @@ class WriteSubscribeToUserSerializer(SubscribeToUserSerializer):
         dct = {'subscribed': subscribed.id,
                'subscriber': subscriber.id}
         serializer = CreateSubscribeSerializer(data=dct)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return True
-        raise serializers.ValidationError(
-            detail={'errors': serializer.errors.get('errors')[0]}
-        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return True
 
 
 class ReadSubscribeToUserSerializer(SubscribeToUserSerializer):
