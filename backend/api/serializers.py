@@ -6,7 +6,6 @@ from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db.models import F
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import SAFE_METHODS
@@ -158,20 +157,6 @@ class WriteIngredientsInRecipeSerializer(serializers.ModelSerializer):
         model = IngredientsInRecipe
         fields = ('id', 'amount')
 
-    def validate_amout(self, value):
-        if value <= 0:
-            raise ValidationError({
-                'amount': 'Количество должно быть больше 0'
-            })
-
-    def validate_id(self, value):
-        try:
-            get_object_or_404(Ingredient, id=value)
-        except Exception:
-            raise ValidationError({
-                'ingredients': 'Указан ID несуществующего ингредиента'
-            })
-
 
 class WriteRecipeSerializer(serializers.ModelSerializer):
     tags = serializers.PrimaryKeyRelatedField(many=True,
@@ -211,11 +196,8 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
             )
         set_of_ing = {}
         for item in value:
-            data = {'id': item.get('ingredient'),
-                    'amount': item.get('amount')}
-            serializer = WriteIngredientsInRecipeSerializer(data)
-            serializer.is_valid(raise_exception=True)
-            set_of_ing.add(item.get('ingredient'))
+            id = item.get('id')
+            set_of_ing[id] = id
         if len(value) != len(set_of_ing):
             raise ValidationError({
                 'ingredients': 'Ингредиенты не должны повторяться'
