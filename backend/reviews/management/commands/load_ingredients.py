@@ -13,7 +13,7 @@ class Command(BaseCommand):
         with open(file_path, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file)
             for row in reader:
-                ingredient = Ingredient.objects.create(
+                Ingredient.objects.create(
                     name=row['name'],
                     measurement_unit=row['measurement_unit']
                 )
