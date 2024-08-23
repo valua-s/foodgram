@@ -20,13 +20,14 @@ def get_filter_recipe_queryset(self):
         objs = Cart.objects.filter(user=user)
         recipe_ids = objs.values_list('recipe_id', flat=True)
         queryset = queryset.filter(id__in=recipe_ids)
+    tag_ids = self.request.query_params.getlist('tags')
+    if tag_ids:
+        queryset = queryset.filter(tags__slug__in=tag_ids).distinct()
     return queryset
 
 
 class RecipeFilter(django_filters.FilterSet):
-    tags = django_filters.CharFilter(field_name='tags__slug',
-                                     lookup_expr='icontains')
 
     class Meta:
         model = Recipe
-        fields = ['tags', 'author']
+        fields = ['author',]

@@ -27,7 +27,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = CreateUserSerializer
     pagination_class = LimitOffsetPagination
-    http_method_names = ['get', 'list', 'post']
+    http_method_names = ['get', 'list', 'post', 'put', 'delete']
 
     def get_serializer_class(self):
         if self.request.method in SAFE_METHODS:
@@ -85,10 +85,15 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @subscribe.mapping.delete
     def delete_subscribe(self, request, pk=None):
-        obj = get_object_or_404(
-            Subscription,
-            subscriber=request.user.id,
-            subscribed=self.user.id)
+        user = get_object_or_404(User, id=pk)
+        try:
+            obj = get_object_or_404(
+                Subscription,
+                subscriber=request.user.id,
+                subscribed=user.id)
+        except Exception:
+            return Response({'Вы не подписаны на данного пользователя'},
+                            status=status.HTTP_400_BAD_REQUEST)
         obj.delete()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
@@ -149,60 +154,62 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return ReadRecipeSerializer
         return WriteRecipeSerializer
 
-    def write_base_cart_favorite(request, pk=None,
-                                 serializer_class=None):
+    @action(detail=True, methods=['post'],
+            permission_classes=(IsAuthenticated,))
+    def shopping_cart(self, request, pk=None):
         recipe = get_object_or_404(Recipe, id=pk)
         if request.method != 'POST':
             return Response(status=status.HTTP_400_BAD_REQUEST)
         dct = {'recipe': recipe,
                'user': request.user}
-        serializer = serializer_class(
+        serializer = WriteCartRecipeSerializer(
             data=dct, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data.get('recipe'),
                         status=status.HTTP_201_CREATED)
 
-    def delete_base_cart_favorite(request, pk=None,
-                                  model_name=None):
+    @shopping_cart.mapping.delete
+    def delete_shopping_cart(self, request, pk=None):
         recipe = get_object_or_404(Recipe, id=pk)
-        obj = get_object_or_404(model_name, recipe=recipe,
-                                user=request.user)
+        try:
+            obj = get_object_or_404(Cart, recipe=recipe,
+                                    user=request.user)
+        except Exception:
+            return Response({'Вы добавляли элемент в корзину'},
+                            status=status.HTTP_400_BAD_REQUEST)
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'],
             permission_classes=(IsAuthenticated,))
-    def shopping_cart(self, request, pk=None):
-        return self.write_base_cart_favorite(
-            pk=pk, request=request,
-            serializer_class=WriteCartRecipeSerializer
-        )
-
-    @shopping_cart.mapping.delete
-    def delete_shopping_cart(self, request, pk=None):
-        return self.delete_base_cart_favorite(
-            pk=pk, request=request,
-            model_name=Cart
-        )
-
-    @action(detail=True, methods=['post'],
-            permission_classes=(IsAuthenticated,))
     def favorite(self, request, pk=None):
-        return self.write_base_cart_favorite(
-            pk=pk, request=request,
-            serializer_class=WriteFavoriteRecipeSerializer
-        )
+        recipe = get_object_or_404(Recipe, id=pk)
+        if request.method != 'POST':
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        dct = {'recipe': recipe,
+               'user': request.user}
+        serializer = WriteFavoriteRecipeSerializer(
+            data=dct, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data.get('recipe'),
+                        status=status.HTTP_201_CREATED)
 
     @favorite.mapping.delete
     def delete_favorite(self, request, pk=None):
-        return self.delete_base_cart_favorite(
-            pk=pk, request=request,
-            model_name=Favorite
-        )
+        recipe = get_object_or_404(Recipe, id=pk)
+        try:
+            obj = get_object_or_404(Favorite, recipe=recipe,
+                                    user=request.user)
+        except Exception:
+            return Response({'Вы добавляли элемент в избранное'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['get'],
-            permission_classes=(IsAuthenticated,),
+            permission_classes=(AllowAny,),
             url_path='get-link')
     def short_link(self, request, pk=None):
         host = get_current_site(request)

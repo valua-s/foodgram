@@ -157,6 +157,20 @@ class WriteIngredientsInRecipeSerializer(serializers.ModelSerializer):
         model = IngredientsInRecipe
         fields = ('id', 'amount')
 
+    def validate_id(self, value):
+        if not Ingredient.objects.filter(id=value).exists():
+            raise ValidationError({
+                'ingredients': 'Ингредиент не существует'
+            })
+        return value
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise ValidationError({
+                'amount': 'Количество должно быть больше 0'
+            })
+        return value
+
 
 class WriteRecipeSerializer(serializers.ModelSerializer):
     tags = serializers.PrimaryKeyRelatedField(many=True,
@@ -196,7 +210,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
             )
         set_of_ing = {}
         for item in value:
-            id = item.get('id')
+            id = item.get('ingredient')['id']
             set_of_ing[id] = id
         if len(value) != len(set_of_ing):
             raise ValidationError({
@@ -405,8 +419,7 @@ class CreateSubscribeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         return Subscription.objects.create(
             subscribed=validated_data['subscribed'],
-            subscriber=validated_data['subscriber'],
-            is_subscribe=True)
+            subscriber=validated_data['subscriber'])
 
 
 class WriteSubscribeToUserSerializer(SubscribeToUserSerializer):
