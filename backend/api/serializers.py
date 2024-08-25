@@ -213,14 +213,14 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
             id = item.get('ingredient')['id']
             amount = item.get('amount')
             set_of_ing[id] = id
+            if amount <= 0:
+                raise ValidationError({
+                    'amount': 'Количество должно быть больше 0'
+                })
         if len(value) != len(set_of_ing):
             raise ValidationError({
                 'ingredients': 'Ингредиенты не должны повторяться'
-            })
-        if amount <= 0:
-            raise ValidationError({
-                'amount': 'Количество должно быть больше 0'
-            })
+            }) 
         return value
 
     def validate_tags(self, value):
