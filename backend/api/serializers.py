@@ -165,7 +165,7 @@ class WriteIngredientsInRecipeSerializer(serializers.ModelSerializer):
         return value
 
     def validate_amount(self, value):
-        if value <= 0:
+        if value < 1:
             raise ValidationError({
                 'amount': 'Количество должно быть больше 0'
             })

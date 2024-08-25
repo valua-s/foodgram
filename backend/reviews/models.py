@@ -161,7 +161,7 @@ class RecipeTag(models.Model):
 class IngredientsInRecipe(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
-    amount = models.IntegerField('Количество ингрединета в рецепте',
+    amount = models.IntegerField('Количество ингредиента в рецепте',
                                  validators=[MinValueValidator(1), ])
 
     class Meta:
