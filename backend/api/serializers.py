@@ -220,7 +220,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         if len(value) != len(set_of_ing):
             raise ValidationError({
                 'ingredients': 'Ингредиенты не должны повторяться'
-            }) 
+            })
         return value
 
     def validate_tags(self, value):
