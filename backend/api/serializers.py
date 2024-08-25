@@ -211,7 +211,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         set_of_ing = {}
         for item in value:
             id = item.get('ingredient')['id']
-            amount = item.get('amount')[0]
+            amount = item.get('amount')
             set_of_ing[id] = id
         if len(value) != len(set_of_ing):
             raise ValidationError({
