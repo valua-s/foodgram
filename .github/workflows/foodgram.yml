@@ -64,7 +64,7 @@ jobs:
         with:
           context: ./backend/
           push: true
-          tags: valuas/foodram-back:latest 
+          tags: valuas/foodgram-back:latest 
 
 
   build_frontend_and_push_to_docker_hub:
