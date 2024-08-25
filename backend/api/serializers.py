@@ -14,7 +14,6 @@ from reviews.models import (Cart, Favorite, Ingredient, IngredientsInRecipe,
                             Recipe, ShortLinkRecipe, Subscription, Tag, User)
 
 from .fields import Base64ImageField
-from .pagination import LimitOffsetPaginationRecipesParam
 
 
 class CreateUserSerializer(serializers.ModelSerializer):
@@ -211,10 +210,15 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         set_of_ing = {}
         for item in value:
             id = item.get('ingredient')['id']
+            amount = item.get('amount')
             set_of_ing[id] = id
         if len(value) != len(set_of_ing):
             raise ValidationError({
                 'ingredients': 'Ингредиенты не должны повторяться'
+            })
+        if amount <= 0:
+            raise ValidationError({
+                'amount': 'Должно быть больше 0'
             })
         return value
 
@@ -377,16 +381,17 @@ class SubscribeToUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('is_subscribed', 'email', 'id', 'username',
+        fields = ('is_subscribed', 'email', 'username',
                   'first_name', 'last_name', 'recipes',
                   'recipes_count',
                   'avatar')
+        read_only_fields = ('email', 'username',
+                            'first_name', 'last_name',
+                            'avatar')
 
     def get_recipes(self, obj):
         recipes = obj.recipes.all()
-        paginator = LimitOffsetPaginationRecipesParam()
-        page = paginator.paginate_queryset(recipes, self.context['request'])
-        serializer = ReadCartRecipeSerializer(page, many=True)
+        serializer = ReadCartRecipeSerializer(recipes, many=True)
         return serializer.data
 
     def get_recipes_count(self, obj):

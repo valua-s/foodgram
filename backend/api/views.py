@@ -34,7 +34,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserSerializer
         return CreateUserSerializer
 
-    @action(detail=False, methods=['get'],
+    @action(detail=False, methods=['get', 'put'],
             permission_classes=(IsAuthenticated,))
     def me(self, request):
         serializer = UserSerializer(request.user,
@@ -101,8 +101,10 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes=(IsAuthenticated,))
     def subscriptions(self, request):
         user = request.user
-        subscriptions = user.subscriptions.all()
-        page = self.paginate_queryset(subscriptions)
+        subscriptions = user.subscriptions.all().values_list(
+            'subscribed', flat=True)
+        subscriptions_users = User.objects.filter(id__in=subscriptions)
+        page = self.paginate_queryset(subscriptions_users)
         if page is not None:
             serializer = ReadSubscribeToUserSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
