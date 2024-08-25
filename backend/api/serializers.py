@@ -4,9 +4,9 @@ import string
 
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
+from django.core.validators import MinValueValidator
 from django.db.models import F
 from django.http import HttpResponse
-from django.core.validators import MinValueValidator
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import SAFE_METHODS
