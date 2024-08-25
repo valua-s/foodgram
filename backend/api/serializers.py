@@ -151,6 +151,7 @@ class ReadRecipeSerializer(serializers.ModelSerializer):
 
 class WriteIngredientsInRecipeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='ingredient.id', write_only=True)
+    amount = serializers.IntegerField()
 
     class Meta:
         model = IngredientsInRecipe
@@ -210,7 +211,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         set_of_ing = {}
         for item in value:
             id = item.get('ingredient')['id']
-            amount = item.get('amount')
+            amount = item.get('amount')[0]
             set_of_ing[id] = id
         if len(value) != len(set_of_ing):
             raise ValidationError({
@@ -218,7 +219,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
             })
         if amount <= 0:
             raise ValidationError({
-                'amount': 'Должно быть больше 0'
+                'amount': 'Количество должно быть больше 0'
             })
         return value
 
