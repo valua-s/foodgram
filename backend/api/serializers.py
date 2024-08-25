@@ -4,7 +4,6 @@ import string
 
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
-from django.core.validators import MinValueValidator
 from django.db.models import F
 from django.http import HttpResponse
 from rest_framework import serializers
@@ -152,7 +151,7 @@ class ReadRecipeSerializer(serializers.ModelSerializer):
 
 class WriteIngredientsInRecipeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='ingredient.id', write_only=True)
-    amount = serializers.IntegerField(validators=[MinValueValidator(1), ])
+    amount = serializers.IntegerField(min_value=1)
 
     class Meta:
         model = IngredientsInRecipe
