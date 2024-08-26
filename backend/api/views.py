@@ -3,7 +3,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import (SAFE_METHODS, AllowAny,
                                         IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
@@ -26,7 +26,7 @@ from .serializers import (CreateListCartSerializer, CreateUserSerializer,
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = CreateUserSerializer
-    pagination_class = LimitOffsetPagination
+    pagination_class = PageNumberPagination
     http_method_names = ['get', 'list', 'post', 'put', 'delete']
 
     def get_serializer_class(self):
@@ -34,7 +34,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserSerializer
         return CreateUserSerializer
 
-    @action(detail=False, methods=['get', 'put'],
+    @action(detail=False, methods=['get'],
             permission_classes=(IsAuthenticated,))
     def me(self, request):
         serializer = UserSerializer(request.user,
@@ -101,10 +101,8 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes=(IsAuthenticated,))
     def subscriptions(self, request):
         user = request.user
-        subscriptions = user.subscriptions.all().values_list(
-            'subscribed', flat=True)
-        subscriptions_users = User.objects.filter(id__in=subscriptions)
-        page = self.paginate_queryset(subscriptions_users)
+        subscriptions = user.subscriptions.all()
+        page = self.paginate_queryset(subscriptions)
         if page is not None:
             serializer = ReadSubscribeToUserSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
@@ -129,7 +127,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    pagination_class = LimitOffsetPagination
+    pagination_class = PageNumberPagination
     http_method_names = ['get', 'list', 'post', 'patch', 'delete']
     permission_classes = (IsAuthenticatedOrReadOnly,)
     ordering = ['-pub_date']
