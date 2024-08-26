@@ -101,12 +101,15 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes=(IsAuthenticated,))
     def subscriptions(self, request):
         user = request.user
-        subscriptions = user.subscriptions.all()
-        page = self.paginate_queryset(subscriptions)
+        subscriptions = user.subscriptions.all().values_list(
+            'subscribed', flat=True)
+        subscriptions_users = User.objects.filter(id__in=subscriptions)
+        page = self.paginate_queryset(subscriptions_users)
         if page is not None:
             serializer = ReadSubscribeToUserSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        serializer = ReadSubscribeToUserSerializer(subscriptions, many=True)
+        serializer = ReadSubscribeToUserSerializer(subscriptions_users,
+                                                   many=True)
         return Response(serializer.data)
 
 
