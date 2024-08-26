@@ -3,7 +3,6 @@ from django.shortcuts import get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import (SAFE_METHODS, AllowAny,
                                         IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
@@ -13,6 +12,7 @@ from reviews.models import (Cart, Favorite, Ingredient, Recipe,
 
 from .filters import (RecipeFilter, SearchFilterNameParam,
                       get_filter_recipe_queryset)
+from .pagination import PageLimitPagination
 from .serializers import (CreateListCartSerializer, CreateUserSerializer,
                           IngredientsSerializer, PasswordSetSerializer,
                           ReadRecipeSerializer, ReadSubscribeToUserSerializer,
@@ -26,7 +26,7 @@ from .serializers import (CreateListCartSerializer, CreateUserSerializer,
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = CreateUserSerializer
-    pagination_class = PageNumberPagination
+    pagination_class = PageLimitPagination
     http_method_names = ['get', 'list', 'post', 'put', 'delete']
 
     def get_serializer_class(self):
@@ -127,7 +127,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    pagination_class = PageNumberPagination
+    pagination_class = PageLimitPagination
     http_method_names = ['get', 'list', 'post', 'patch', 'delete']
     permission_classes = (IsAuthenticatedOrReadOnly,)
     ordering = ['-pub_date']
