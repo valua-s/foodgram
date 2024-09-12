@@ -20,9 +20,10 @@ services:
     volumes:
       - media:/app/media
       - static:/backend_static
+    command: ["./wait-for-it.sh", "db:5432", "--", "python", "app.py"]
     depends_on: 
       - db
-    command: ["./wait-for-it.sh", "db:5432", "--", "python", "app.py"]
+    
       
   frontend:
     container_name: foodgram-front
