@@ -38,7 +38,7 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['84.252.139.254', '127.0.0.1', 'localhost', 'foodgram-valuas.ddns.net']
+ALLOWED_HOSTS = ['84.252.139.254', '127.0.0.1', 'localhost', 'foodgram-valuas.ddns.net', '0.0.0.0']
 
 # Application definition
 
@@ -106,8 +106,8 @@ DATABASES = {
         'NAME': config('POSTGRES_DB'),
         'USER': config('POSTGRES_USER'),
         'PASSWORD': config('POSTGRES_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT')
+        'HOST': 'db',
+        'PORT': 5432
     }
 }
 
