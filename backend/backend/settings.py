@@ -10,9 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 import os
-import environ
 from pathlib import Path
 
+import environ
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 
