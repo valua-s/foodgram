@@ -12,7 +12,6 @@ jobs:
       postgres:
         image: postgres:13
         env:
-          SECRET_KEY: django-insecure-lfx1552%5r0@ezkt0f6@y#q)==ooc7n=u5o%$l=k$pr(y2vm%n
           POSTGRES_USER: django_user
           POSTGRES_PASSWORD: django_password
           POSTGRES_DB: django_db
@@ -35,6 +34,7 @@ jobs:
         pip install -r ./backend/requirements.txt 
     - name: Test with flake8 and django tests
       env:
+        SECRET_KEY: 'django-insecure-lfx1552%5r0@ezkt0f6@y#q)==ooc7n=u5o%$l=k$pr(y2vm%n'
         POSTGRES_USER: django_user
         POSTGRES_PASSWORD: django_password
         POSTGRES_DB: django_db
