@@ -13,7 +13,6 @@ import os
 from pathlib import Path
 
 import sentry_sdk
-# from decouple import config
 from sentry_sdk.integrations.django import DjangoIntegration
 
 sentry_sdk.init(
