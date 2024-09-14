@@ -9,7 +9,7 @@
 <img src="2024-08-21_19-30-29.png" height='150'/>
 <img src="2024-08-22_19-57-57.png" height='150'/>
 
-https://foodgram-valuas.ddns.net/
+http://84.252.139.254:7000
 
 ---
 Бэкенд проекта разработан с помощью: <br><br> ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)<br>
